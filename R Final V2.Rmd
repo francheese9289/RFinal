@@ -1,0 +1,514 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# R Final Project
+
+## Space Travel Data Set
+
+Pulling in train.csv from Kaggle site.
+
+```{r}
+read_csv("train.csv")
+sp_data <- as.data.frame(read_csv("train.csv"))
+
+```
+
+```{r}
+class(sp_data)
+```
+
+### Data Types
+
+-   Continuous
+
+    -   Age
+    -   Spending Categories
+        -   RoomServices
+
+        -   FoodCourt
+
+        -   ShoppingMall
+
+        -   Spa
+
+        -   VRDeck
+
+-   Discrete
+
+    -   KEY- Passenger ID
+
+    -   HomePlanet
+
+    -   CryoSleep
+
+    -   Cabin
+
+    -   VIP
+
+    -   Name
+
+    -   Transported
+
+## Query for Basic Information
+
+### Group Sizes
+
+```{r}
+#What is the average group size?
+group_info <- group_info %>%
+             summarise(group_size = n())
+avg_grp_size <- group_info %>% 
+  summarise(avg = mean(group_size), count = n())
+avg_grp_size
+# avg group size is less than 1.5 out of 69217 groups
+View(group_info_df
+```
+
+```{r}
+
+
+ggplot(group_info_df, aes(x=group_size)) +
+         geom_histogram(bins = 8, fill = "purple", col = "black") +
+  labs(title="Groups by Count and Size", y= "Count of Groups", x="Group Size") +
+my_theme
+```
+
+### VIP Count
+
+```{r}
+#How many of our passengers are VIPs
+vip_info <- sp_data_w_age %>%
+  group_by(VIP, HomePlanet)%>%
+  summarise(count = n())
+vip_info
+
+ggplot(vip_info) +
+  geom_col(x=HomePlanet, y = count, fill = VIP) + 
+  scale_color_brewer("Dark2") +
+  my_theme()
+
+```
+
+### Cryo Sleep Info
+
+```{r}
+#How many people opted for the Cryo sleep option (and how many of them are VIPs)
+cryo_data <- sp_data_w_age %>%
+  group_by(CryoSleep, traveler_age_group ) %>%
+  summarise(count = n())
+cryo_data #only 21 VIPs using cryosleep
+
+
+```
+
+```{r}
+
+ggplot (sp_data) +
+    geom_bar(mapping = aes(x= CryoSleep, fill= VIP, position = "dodge"), color = "black") +
+  theme (aspect.ratio = 1) + scale_fill_brewer(palette = "Dark2") +
+  labs(x = NULL, y = NULL) + my_theme + labs(title = "Number of CryoSleep Users by VIP Status", x= "Passengers", y= "CryoSleep")
+```
+
+### Transport Info
+
+```{r}
+#number of passengers transported by destination, home planet
+transport_info <- sp_data %>%
+  group_by(Destination, Transported) %>%
+  filter(!is.na(Destination)) %>%
+  summarise(num_passengers = n())
+arrange(transport_info, desc(num_passengers))
+```
+
+```{r}
+ggplot (sp_data) +
+    geom_bar(mapping = aes(x= Transported, fill= Destination, position = "fill"), color = "black") +
+  theme (aspect.ratio = 1) + coord_polar() + 
+  scale_fill_manual(values=c("#009668","#eeff41", "#ffab40")) +
+  labs(x = NULL, y = NULL) + my_theme + labs(title = "Number of Completed Trips by Planet")
+```
+
+### Destination Info
+
+```{r}
+dest_info <- sp_data %>%
+  group_by(Destination) %>%
+  filter(!is.na(Destination)) %>%
+  summarise(num_passengers = n())
+dest_info
+
+```
+
+```{r}
+traveler_dest <- age_group %>% 
+  group_by(Destination, traveler_age_group) %>% 
+    filter(!is.na(Destination)) %>%
+  summarise(
+    num_passengers = n(),
+    na.rm = TRUE
+  )   
+traveler_dest
+```
+
+## Query for demographics information
+
+### Grouping Ages
+
+```{r}
+by_age <- sp_data %>% count(Age, na.rm=TRUE)
+by_age_sorted <- arrange(by_age,desc(n))
+by_age_sorted  <- by_age_sorted %>% filter(!is.na(Age))
+by_age_sorted
+
+#looks like making age groups will yield interesting info
+
+#by_age_sorted %>% summarize(median_age = median(Age))
+
+ggplot(sp_data_w_age) +
+  geom_density(aes(Age)) +
+  labs(title = "Passenger Age Distribution") +
+   my_theme
+```
+
+```{r}
+#find min & max ages
+min_age <- min(sp_data$Age, na.rm = T)
+min_age
+max_age <- max(sp_data$Age, na.rm=T)
+max_age
+#age groups: 0-3 'baby', 4-16 'child',17-30 'young adult', 31-60 'adult','60+ senior'
+```
+
+```{r}
+#add age group column to data set
+age_group <- sp_data %>%
+  group_by(Age) %>%
+  mutate(traveler_age_group = case_when(
+    Age >= 65 ~ 'senior',
+    Age >= 31 ~ 'adult',
+    Age >= 17 ~ 'young adult',
+    Age >= 4  ~ 'child',
+    Age >= 0  ~ 'baby',
+    TRUE ~ NA_character_
+  ))
+
+sp_data_w_age <- as.data.frame(age_group) # making new results into DF, hopefully it will help with issues I've been having
+age_group_sum <- age_group %>%
+  group_by(traveler_age_group) %>%
+  filter (!is.na(traveler_age_group)) %>%
+  summarise(num_passengers = n())
+age_group_sum
+```
+
+```{r}
+age_pie = ggplot(data = age_group_sum) +
+  geom_col(mapping = aes(x = traveler_age_group, y=num_passengers, fill = traveler_age_group,position = "dodge"), color= "black") +
+  theme (aspect.ratio = 1) + 
+  labs (title= "Traveler Age Groups", y="Number of Passengers", x = "Age Groups") +
+  my_theme
+
+age_pie 
+```
+
+### Home Planet
+
+```{r}
+traveler_home<- sp_data %>%
+  group_by(HomePlanet) %>%
+  filter(!is.na(HomePlanet)) %>%
+  summarise(num_passengers = n(),
+            na.rm = TRUE)
+arrange(traveler_home, HomePlanet, desc(num_passengers))
+#majority of travelers are from Earth
+```
+
+#### Home Planet by Age Group
+
+```{r}
+#taking a look at where age groups are coming from
+traveler_home_age <- sp_data_w_age %>%
+  group_by(traveler_age_group, HomePlanet) %>%
+    filter(!is.na(HomePlanet)) %>%
+  summarise(num_passengers = n(),
+            na.rm = TRUE)
+ View(arrange(traveler_home_age, desc(num_passengers), HomePlanet, traveler_age_group))
+  
+#most travelers are YOUNG adults from earth!
+```
+
+#### VIPs by Home Planet, Age
+
+```{r}
+VIP_age <- sp_data_w_age %>%
+  group_by(VIP, traveler_age_group) %>%
+  summarise(num_passengers = n())
+VIP_age
+```
+
+```{r}
+#backing up to see where our VIPs come from
+VIP_home <- sp_data %>%
+  filter( VIP == TRUE) %>%
+  group_by(HomePlanet)%>%
+  summarise(num_VIPs = n()) 
+  
+
+VIP_home <- as.data.table(VIP_home)# agreeing with the data below, all of our VIPs are from Europa & Mars
+ggplot(total_spent) +
+  geom_point(aes(x=HomePlanet, y=Age, color = VIP), alpha =.5, position = "jitter") +
+  scale_size_area() +  my_theme
+```
+
+## Query for Financial Information
+
+### Spending on Services
+
+```{r}
+#getting some totals and averages for spending
+rs_ttl<-sum(sp_data$RoomService, na.rm = T)
+fc_ttl<-sum(sp_data$FoodCourt, na.rm = T)
+sm_ttl<-sum(sp_data$ShoppingMall, na.rm = T)
+spa_ttl<-sum(sp_data$Spa, na.rm = T)
+vr_ttl<-sum(sp_data$VRDeck, na.rm = T)
+
+#number of customers
+rs_cust <- sp_data %>% filter (RoomService > 0) %>% summarise(rs_cust = n()) %>% pull(rs_cust)
+fc_cust <- sp_data %>% filter (FoodCourt > 0) %>% summarise(fc_cust = n()) %>% pull(fc_cust)
+sm_cust <- sp_data %>% filter(ShoppingMall > 0) %>% summarise(sm_cust = n()) %>% pull(sm_cust)
+spa_cust <- sp_data %>% filter (Spa > 0) %>% summarise(spa_cust = n()) %>% pull(spa_cust)
+vr_cust <- sp_data %>% filter (VRDeck > 0) %>% summarise(vr_cust = n()) %>% pull(vr_cust)
+
+service_name <- c("Room Service","Food Court","Shopping Mall","Spa","VR Deck")
+
+service_spending<- c(rs_ttl, fc_ttl, sm_ttl, spa_ttl, vr_ttl)
+avg_spending_per_traveler <- c(mean(rs_ttl/8693),mean(fc_ttl/8693),mean(sm_ttl/8693),mean(spa_ttl/8693), mean(vr_ttl/8693))
+
+sdf <- data.frame(service_name, service_spending, avg_spending_pp)
+
+#ttl_spending <- sum(sdf$service_spending)
+#avg_spending <- mean(ttl_spending/8693)
+#ttl_spending
+#avg_spending
+
+#arrange(sdf, service_spending)
+sdf$customer_count <- c(rs_cust, fc_cust, sm_cust, spa_cust, vr_cust)
+sdf$avg_per_customer <- c((rs_ttl/rs_cust),(fc_ttl/fc_cust),(sm_ttl/sm_cust),(spa_ttl/spa_cust),(vr_ttl/vr_cust))
+sdf 
+```
+
+```{r}
+ggplot(sdf, aes(x=service_name, y=avg_per_customer, fill = service_name)) +
+  geom_col(color = "black") + my_theme +
+  labs(title="Average Customer Spending per Vendor Type", x= "Vendor Type", y="Average Spent ($)", color = "Service Name") + guides(x = guide_axis(n.dodge = 2))
+```
+
+```{r}
+#How much did individuals spend?
+total_spent <- sp_data_w_age %>%
+ mutate(ttl_spent=rowSums(across(c(RoomService:VRDeck)))) 
+
+total_spent
+#top spender was NOT a VIP
+```
+
+```{r}
+ggplot(age_group_spending, aes(x= traveler_age_group, fill= factor(VIP))) +
+  geom_dotplot(stackratio = .7, stackdir = "center", binpositions = "all") +
+  scale_y_continuous(NULL, breaks = NULL)
+```
+
+#### VIPs
+
+```{r}
+#spending by VIP
+VIP_spending <- total_spent %>%
+  group_by(HomePlanet) %>%
+  filter(VIP == TRUE) %>%
+  summarise(spending = sum(ttl_spent, na.rm = TRUE), num_passengers = n(), avg_spending = spending/num_passengers)
+
+VIP_spending #only VIPs from Europa & Mars spending $$
+```
+
+#### Age Groups
+
+```{r}
+#spending by age group
+#having grouping issues
+
+age_group_spending <- total_spent %>%
+  group_by(Age, traveler_age_group,HomePlanet,VIP) %>%
+  filter(!is.na(traveler_age_group))%>%
+  summarize(spending = sum(ttl_spent, na.rm =TRUE), rs= sum(RoomService), fc = sum(FoodCourt), sm =sum(ShoppingMall), spa = sum(Spa), vr = sum(VRDeck), num_passengers = n(), avg_spending = spending/num_passengers)
+
+arrange(age_group_spending, desc(avg_spending), traveler_age_group, spending, num_passengers) #on average seniors are spending the most
+```
+
+#### Home Planet
+
+```{r}
+spending_by_homeplanet <- total_spent %>%
+  group_by(HomePlanet) %>%
+  filter(!is.na(HomePlanet))%>%
+  summarize(spending = sum(ttl_spent, na.rm =TRUE), num_passengers = n(), avg_spending = spending/num_passengers)
+
+spending_by_homeplanet
+
+ggplot(spending_by_homeplanet, aes(x = HomePlanet, y= spending)) +
+  geom_point() +
+geom_segment(aes(x = HomePlanet, xend = HomePlanet, y=0, yend=spending, color = HomePlanet), line =10) + my_theme
+```
+
+## Plotting Results
+
+```{r}
+#setting a theme
+my_theme <- theme_minimal() + theme(text = element_text(face = "bold", family = "Courier New"))
+```
+
+### Home Planet Data
+
+```{r}
+h<-traveler_home_age  %>% 
+  ggplot(mapping = aes(y=num_passengers, x=HomePlanet, 
+                       fill=HomePlanet)) +
+        labs(title = "Number of Passengers by Origin", y= "Passengers", x ="Home Planet") + 
+        my_theme
+h <- h + geom_boxplot() 
+h
+```
+
+### Destination Planet
+
+```{r}
+d<-traveler_dest  %>% 
+  ggplot(mapping = aes(y=num_passengers, x=Destination, fill=Destination)) +
+  geom_boxplot()
+d <- d + labs(title = "Number of Passengers by Destination", y = "Passengers", x = "Destination Planet") + 
+  scale_fill_manual(values=c("#009668","#eeff41", "#ffab40")) + my_theme
+
+d
+```
+
+```{r}
+#
+ggplot_add(d + h)
+```
+
+```{r}
+#home planet, age
+home_age<-traveler_home_age  %>% 
+  ggplot(mapping = aes(y=num_passengers, x=traveler_age_group, fill= HomePlanet)) +
+  geom_col() + scale_fill_brewer(palette = "Dark2") + labs(title = "Travelers by Age Group and Home Planet", y= "Passengers") + my_theme
+  
+home_age
+```
+
+```{r}
+#another look at age/planet
+age_group_drop <- traveler_home_age %>%
+  filter(!is.na(traveler_age_group))
+
+home_age_2 <- ggplot(sp_data_w_age, aes(traveler_age_group, fill = HomePlanet)) +
+  geom_bar(position = "dodge", color="black") + scale_fill_brewer(palette = "Dark2") + labs(title = "Travelers by Age Group and Home Planet", y= "Passengers", x= "Traveler Age Group") + my_theme
+           
+#+ scale_fill_manual(values =c("#009668","#eeff41", "#ffab40")) + my_theme + facet_wrap(vars(traveler_age_group)
+           
+           
+home_age_2
+```
+
+```{r}
+
+
+dest_age_2 <- ggplot(sp_data_w_age, aes(traveler_age_group, fill = Destination)) +
+  geom_bar(position = "dodge", color = "black") +  scale_fill_manual(values=c("#009668","#eeff41", "#ffab40")) + labs(title = "Travelers by Age Group and Destination", y= "Passengers", x= "Traveler Age Group") + my_theme
+           
+#+ scale_fill_manual(values =c("#009668","#eeff41", "#ffab40")) + my_theme + facet_wrap(vars(traveler_age_group)
+           
+           
+dest_age_2
+```
+
+### Spending Data
+
+```{r}
+new_ags <- age_group_spending %>%
+  filter(Age >= 17)
+
+p <- ggplot(new_ags) +
+  geom_hex (aes(x= num_passengers, y= spending, color= VIP, fill=HomePlanet)) +
+  labs (x = "Passengers", y = "Total Expenditures ($)", title = "Space Traveler Expenses by Home Planet") +  scale_fill_manual(values=c("#009668","#eeff41", "#ffab40")) +
+  my_theme
+p
+```
+
+```{r}
+pp <- ggplot(new_ags) +
+  geom_hex (aes(x=num_passengers, y= spending, fill= traveler_age_group, color= VIP)) + 
+  labs (x = "Number of Passengers", y = "Total Expenditures ($)", title = "Space Traveler Expenses by Age Group") + 
+  scale_size_area() +
+  my_theme
+pp
+```
+
+```{r}
+#Age & planet
+ap <- ggplot(new_ags, aes(x=Age, y=spending)) +
+               geom_point(aes(color = HomePlanet, size = num_passengers),alpha = .7)+
+  scale_size_area(max_size = 15) + labs(title = "Spending Trends by Age, Home Planet")+my_theme
+ap
+```
+
+```{r}
+#plot spending data by service
+ags <- new_ags [, c("traveler_age_group","rs","fc","sm","spa","vr")]
+
+
+ags <- as.data.table(ags)
+newer_ags <- melt(ags, id.vars = 'traveler_age_group', variable.name ='series')
+
+agsp <- ggplot(newer_ags, aes(series, traveler_age_group)) +
+  geom_jitter(aes(color=series)) +
+  labs(title = "Service Customers by Age Group", x = "Traveler Age Group") +
+  my_theme
+agsp
+```
+
+```{r}
+pie = ggplot(data = sp_data_w_age) +
+  geom_bar(mapping = aes(x=VIP, fill = traveler_age_group),
+           position = "fill"
+           ) +
+  theme (aspect.ratio = 1) +
+  labs(x = NULL, y = NULL) + my_theme
+
+pie + coord_polar() 
+
+```
+
+```{r}
+pie = ggplot(data = sp_data_w_age) +
+  geom_bar(mapping = aes(x=traveler_age_group, fill = Transported),
+           position = "fill"
+           ) + scale_fill_distiller(palette = "Greens")
+  theme (aspect.ratio = 1) +
+  labs(x = NULL, y = NULL) + my_theme
+
+pie + coord_polar() 
+```
+
+```{r}
+
+ggplot(total_spent, aes(x = ttl_spent)) +
+  geom_histogram(binwidth = 10, fill = "#BDBDBD", col = "white", alpha = 0.7) +
+  geom_histogram(data = , aes(x = dep_delay), binwidth = 10, fill = "#6A3D9A", col = "white", alpha = 0.7) +
+  labs(
+    title = "Distribution of Arrival and Departure Delays",
+    x = "Delay (minutes)",
+    y = "Frequency"
+  ) +
+  coord_cartesian(xlim = c(-100, 200)) +
+  theme_dark()
+```
